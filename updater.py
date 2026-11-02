@@ -5,7 +5,7 @@ import feedparser
 import google.generativeai as genai
 
 # Configuration Gemini API
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+GEMINI_API_KEY = os.environ.get("API_Veille")
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-1.5-flash")
 
