@@ -3,24 +3,24 @@ import json
 import urllib.request
 from datetime import datetime
 import feedparser
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
-# Configuration de la clé API
+# 1. Initialisation du client officiel
 api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("API_VEILLE")
 if not api_key:
     raise ValueError("Clé API introuvable.")
 
-genai.configure(api_key=api_key)
+client = genai.Client(api_key=api_key)
 
-# Modèles à tester dans l'ordre (si l'un est saturé, le suivant prend le relais)
+# Modèles à tester
 CANDIDATE_MODELS = [
     "gemini-2.5-flash",
     "gemini-2.0-flash",
-    "gemini-2.5-flash-lite",
-    "gemini-3.8-flash"
+    "gemini-1.5-flash"
 ]
 
-# Flux RSS ciblés
+# 2. Flux RSS ciblés
 FEEDS = {
     "ia": [
         "https://techcrunch.com/category/artificial-intelligence/feed/",
@@ -61,32 +61,22 @@ def fetch_recent_articles(urls, max_items=4):
 
     return articles
 
-def ask_gemini_with_fallback(prompt):
-    """Essaie les modèles l'un après l'autre en cas de quota dépassé (429)"""
+def ask_gemini(prompt):
     for model_name in CANDIDATE_MODELS:
         try:
-            print(f"    Tentative de génération avec {model_name}...")
-            model = genai.GenerativeModel(model_name)
-            response = model.generate_content(
-                prompt,
-                generation_config={"response_mime_type": "application/json"}
+            print(f"    Génération avec le modèle : {model_name}...")
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json"
+                )
             )
             return json.loads(response.text)
         except Exception as e:
-            print(f"    Échec avec {model_name} ({e}) -> Essai du modèle suivant...")
-            try:
-                # Essai en mode texte standard si JSON MIME n'est pas supporté
-                model = genai.GenerativeModel(model_name)
-                response = model.generate_content(prompt)
-                text = response.text.strip()
-                if text.startswith("```json"):
-                    text = text[7:-3].strip()
-                elif text.startswith("```"):
-                    text = text[3:-3].strip()
-                return json.loads(text)
-            except Exception:
-                continue
-    raise RuntimeError("Tous les modèles candidats ont échoué ou sont temporairement à court de quota.")
+            print(f"    Erreur sur {model_name} : {e}")
+            continue
+    raise RuntimeError("Tous les modèles ont échoué. Pensez à générer une clé dans un nouveau projet sur AI Studio.")
 
 def generate_topic_synthesis(topic_key, topic_label, articles):
     print(f"--> Synthèse demandée pour : {topic_label}")
@@ -95,7 +85,7 @@ def generate_topic_synthesis(topic_key, topic_label, articles):
         context += f"Source {idx} ({a['source']}) : {a['title']}\nRésumé : {a['summary']}\nLien : {a['link']}\n\n"
 
     if not context.strip():
-        context = f"Actualités majeures et tendances actuelles concernant {topic_label}."
+        context = f"Actualités et enjeux récents sur {topic_label}."
 
     prompt = f"""
 Tu es un analyste expert. Rédige la fiche de veille stratégique pour : "{topic_label}".
@@ -103,7 +93,7 @@ Tu es un analyste expert. Rédige la fiche de veille stratégique pour : "{topic
 {context}
 
 Rédige une synthèse critique en français avec les informations capitales.
-Réponds STRICTEMENT avec un objet JSON sans aucun formatage Markdown autour, selon cette structure exacte :
+Réponds STRICTEMENT avec un objet JSON sans formatage Markdown, selon cette structure :
 {{
   "title": "Titre professionnel et percutant",
   "highlight": "En 1 ou 2 phrases, l'information capitale absolue à ne pas rater.",
@@ -119,7 +109,7 @@ Réponds STRICTEMENT avec un objet JSON sans aucun formatage Markdown autour, se
   ]
 }}
 """
-    data = ask_gemini_with_fallback(prompt)
+    data = ask_gemini(prompt)
     data["id"] = f"{topic_key}-{datetime.now().strftime('%Y%m%d')}"
     data["topic"] = topic_key
     data["topicLabel"] = topic_label
