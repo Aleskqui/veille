@@ -2,9 +2,9 @@ name: Actualisation Veille Hebdomadaire
 
 on:
   schedule:
-    # Déclenchement chaque lundi à 07:00 UTC (8h00 ou 9h00 heure de Paris selon l'heure d'hiver/été)
+    # Déclenchement chaque lundi à 07:00 UTC (8h00 ou 9h00 heure de Paris selon saison)
     - cron: '0 7 * * 1'
-  workflow_dispatch: # Permet de lancer le robot manuellement à tout moment
+  workflow_dispatch: # Permet de lancer manuellement d'un clic
 
 jobs:
   update-veille:
@@ -23,7 +23,7 @@ jobs:
 
       - name: Exécuter la génération de veille
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.API_Veille }}
         run: python updater.py
 
       - name: Enregistrer les changements sur GitHub
