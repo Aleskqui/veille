@@ -6,25 +6,21 @@ import feedparser
 from google import genai
 from google.genai import types
 
-# 1. Initialisation du client officiel
+# 1. Initialisation du client officiel Google GenAI
 api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("API_VEILLE")
 if not api_key:
-    raise ValueError("Clé API introuvable.")
+    raise ValueError("Clé API introuvable dans les variables d'environnement.")
 
 client = genai.Client(api_key=api_key)
 
-# Modèles à tester
-CANDIDATE_MODELS = [
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-1.5-flash"
-]
+# Modèle officiel actif
+MODEL_NAME = "gemini-3.8-flash"
 
 # 2. Flux RSS ciblés
 FEEDS = {
     "ia": [
         "https://techcrunch.com/category/artificial-intelligence/feed/",
-        "https://venturebeat.com/category/ai/feed/"
+        "https://www.technologyreview.com/feed/"
     ],
     "sport": [
         "https://theanalyst.com/feed/",
@@ -61,25 +57,8 @@ def fetch_recent_articles(urls, max_items=4):
 
     return articles
 
-def ask_gemini(prompt):
-    for model_name in CANDIDATE_MODELS:
-        try:
-            print(f"    Génération avec le modèle : {model_name}...")
-            response = client.models.generate_content(
-                model=model_name,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json"
-                )
-            )
-            return json.loads(response.text)
-        except Exception as e:
-            print(f"    Erreur sur {model_name} : {e}")
-            continue
-    raise RuntimeError("Tous les modèles ont échoué. Pensez à générer une clé dans un nouveau projet sur AI Studio.")
-
 def generate_topic_synthesis(topic_key, topic_label, articles):
-    print(f"--> Synthèse demandée pour : {topic_label}")
+    print(f"--> Synthèse demandée pour : {topic_label} avec {MODEL_NAME}")
     context = ""
     for idx, a in enumerate(articles[:4], 1):
         context += f"Source {idx} ({a['source']}) : {a['title']}\nRésumé : {a['summary']}\nLien : {a['link']}\n\n"
@@ -93,7 +72,7 @@ Tu es un analyste expert. Rédige la fiche de veille stratégique pour : "{topic
 {context}
 
 Rédige une synthèse critique en français avec les informations capitales.
-Réponds STRICTEMENT avec un objet JSON sans formatage Markdown, selon cette structure :
+Réponds STRICTEMENT avec un objet JSON sans aucun formatage Markdown autour, selon cette structure :
 {{
   "title": "Titre professionnel et percutant",
   "highlight": "En 1 ou 2 phrases, l'information capitale absolue à ne pas rater.",
@@ -109,7 +88,21 @@ Réponds STRICTEMENT avec un objet JSON sans formatage Markdown, selon cette str
   ]
 }}
 """
-    data = ask_gemini(prompt)
+    response = client.models.generate_content(
+        model=MODEL_NAME,
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json"
+        )
+    )
+
+    text = response.text.strip()
+    if text.startswith("```json"):
+        text = text[7:-3].strip()
+    elif text.startswith("```"):
+        text = text[3:-3].strip()
+    data = json.loads(text)
+
     data["id"] = f"{topic_key}-{datetime.now().strftime('%Y%m%d')}"
     data["topic"] = topic_key
     data["topicLabel"] = topic_label
