@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hub de Veille Stratégique</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            sand: { 50: '#FAF8F5', 100: '#F5F0E8', 200: '#EAE1D2', border: '#E4DCD0', card: '#FDFCFA' },
+            espresso: { 900: '#1C1613', 800: '#2C221E', muted: '#7A6E65' },
+            rust: { DEFAULT: '#9E4E36', light: '#F8EFEA' },
+            sage: { DEFAULT: '#3D6A53', light: '#EDF4F0' }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="min-h-full flex flex-col font-sans bg-[#FAF8F5] text-[#1C1613]">
+
+  <!-- Header -->
+  <header class="border-b border-sand-border bg-sand-50 sticky top-0 z-30">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-rust"></span>
+          <span class="text-xs font-mono uppercase tracking-widest text-espresso-muted">Veille Auto &bull; Lundi 09:00</span>
+        </div>
+        <h1 class="text-xl font-bold tracking-tight text-espresso-900 mt-0.5">Carnet de Veille Stratégique</h1>
+      </div>
+      <div id="editionDateBadge" class="bg-sand-card border border-sand-border px-3 py-1.5 rounded text-xs font-mono text-espresso-muted">
+        Chargement...
+      </div>
+    </div>
+  </header>
+
+  <!-- Vue Liste -->
+  <main id="listView" class="flex-1 max-w-6xl w-full mx-auto px-4 py-8">
+    <div class="mb-6 p-4 rounded-lg border border-sand-border bg-sand-card flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <label for="editionSelector" class="text-xs font-mono uppercase text-espresso-muted">Archives :</label>
+        <select id="editionSelector" class="text-sm bg-sand-50 border border-sand-border rounded px-3 py-1.5 text-espresso-900 focus:outline-none"></select>
+      </div>
+      <div class="flex gap-2">
+        <button data-topic="all" class="topic-btn px-3 py-1 text-xs rounded bg-espresso-900 text-sand-50 font-medium">Tout</button>
+        <button data-topic="ia" class="topic-btn px-3 py-1 text-xs rounded bg-sand-100 text-espresso-800 hover:bg-sand-200">IA</button>
+        <button data-topic="sport" class="topic-btn px-3 py-1 text-xs rounded bg-sand-100 text-espresso-800 hover:bg-sand-200">Data Sport</button>
+        <button data-topic="demat" class="topic-btn px-3 py-1 text-xs rounded bg-sand-100 text-espresso-800 hover:bg-sand-200">Démat</button>
+      </div>
+    </div>
+
+    <div id="editionSummaryBox" class="mb-6 p-4 rounded-lg border border-sand-border bg-sand-100/60 text-sm text-espresso-800 leading-relaxed"></div>
+    <div id="topicsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+  </main>
+
+  <!-- Vue Page Dédiée -->
+  <article id="detailView" class="hidden flex-1 max-w-4xl w-full mx-auto px-4 py-8">
+    <button id="backBtn" class="mb-6 text-sm font-medium text-espresso-muted hover:text-espresso-900 flex items-center gap-2">
+      &larr; Retour à l'édition
+    </button>
+    <div class="bg-sand-card border border-sand-border rounded-lg p-6 sm:p-10 shadow-sm">
+      <div class="flex items-center gap-2 mb-3">
+        <span id="detailBadge" class="text-xs font-mono px-2 py-0.5 rounded font-semibold uppercase"></span>
+        <span id="detailDate" class="text-xs font-mono text-espresso-muted"></span>
+      </div>
+      <h2 id="detailTitle" class="text-2xl font-bold text-espresso-900 mb-6 leading-snug"></h2>
+
+      <div class="mb-6 p-4 rounded-md border-l-4 border-rust bg-rust-light/50">
+        <div class="text-rust font-semibold text-xs font-mono uppercase mb-1">&bull; Information capitale</div>
+        <p id="detailHighlight" class="text-sm font-medium text-espresso-900"></p>
+      </div>
+
+      <div class="mb-6">
+        <h3 class="text-xs font-mono uppercase tracking-widest text-espresso-muted mb-2">Analyse de fond</h3>
+        <p id="detailAnalysis" class="text-sm sm:text-base text-espresso-800 leading-relaxed whitespace-pre-line"></p>
+      </div>
+
+      <div class="mb-6 border-t border-sand-border pt-4">
+        <h3 class="text-xs font-mono uppercase tracking-widest text-espresso-muted mb-3">Points marquants</h3>
+        <ul id="detailKeyPoints" class="space-y-2 text-sm text-espresso-800"></ul>
+      </div>
+
+      <div class="mb-6 p-4 rounded-md bg-sand-100 border border-sand-border">
+        <h3 class="text-xs font-mono uppercase tracking-widest text-espresso-900 font-bold mb-1">Impact Métier & Alternance</h3>
+        <p id="detailImpact" class="text-sm text-espresso-800"></p>
+      </div>
+
+      <div class="border-t border-sand-border pt-4">
+        <h3 class="text-xs font-mono uppercase tracking-widest text-espresso-muted mb-3">Sources croisées</h3>
+        <div id="detailSources" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+      </div>
+    </div>
+  </article>
+
+  <script>
+    let editions = [];
+    let currentEdId = null;
+    let currentFilter = 'all';
+
+    async function init() {
+      try {
+        const res = await fetch('editions.json?v=' + Date.now());
+        editions = await res.json();
+      } catch (e) {
+        console.error("Erreur de chargement JSON:", e);
+      }
+
+      if (!editions || editions.length === 0) {
+        document.getElementById('topicsContainer').innerHTML = `
+          <div class="col-span-full py-12 text-center text-xs font-mono text-espresso-muted">
+            Aucune édition générée pour le moment. Lancez le workflow GitHub Actions pour créer la première.
+          </div>`;
+        return;
+      }
+
+      currentEdId = editions[0].id;
+      populateArchives();
+      renderEdition();
+    }
+
+    function populateArchives() {
+      const select = document.getElementById('editionSelector');
+      select.innerHTML = '';
+      editions.forEach((ed, idx) => {
+        const opt = document.createElement('option');
+        opt.value = ed.id;
+        opt.textContent = ed.label + (idx === 0 ? " (Dernière)" : "");
+        select.appendChild(opt);
+      });
+      select.onchange = (e) => { currentEdId = e.target.value; renderEdition(); };
+    }
+
+    function renderEdition() {
+      const ed = editions.find(e => e.id === currentEdId) || editions[0];
+      document.getElementById('editionDateBadge').textContent = ed.label;
+      document.getElementById('editionSummaryBox').textContent = ed.editorial;
+
+      const container = document.getElementById('topicsContainer');
+      container.innerHTML = '';
+
+      const items = ed.topics.filter(t => currentFilter === 'all' || t.topic === currentFilter);
+
+      items.forEach(t => {
+        const card = document.createElement('div');
+        card.className = "bg-sand-card border border-sand-border rounded-lg p-5 flex flex-col justify-between hover:border-espresso-900/40 cursor-pointer shadow-sm transition";
+        card.onclick = () => showDetail(t);
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-mono px-2 py-0.5 rounded bg-sand-200 text-espresso-900 font-semibold">${t.topicLabel}</span>
+              <span class="text-[11px] font-mono text-espresso-muted">${t.datePublished}</span>
+            </div>
+            <h3 class="font-bold text-base text-espresso-900 mb-2 leading-snug">${t.title}</h3>
+            <p class="text-xs text-espresso-muted line-clamp-3">${t.highlight}</p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-sand-border flex justify-between items-center text-xs font-mono">
+            <span>${t.sources ? t.sources.length : 0} sources</span>
+            <span class="font-bold text-espresso-900">Lire &rarr;</span>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function showDetail(t) {
+      document.getElementById('detailBadge').textContent = t.topicLabel;
+      document.getElementById('detailBadge').className = `text-xs font-mono px-2.5 py-0.5 rounded font-semibold uppercase ${t.topic === 'sport' ? 'bg-sage-light text-sage' : t.topic === 'demat' ? 'bg-rust-light text-rust' : 'bg-sand-200 text-espresso-900'}`;
+      document.getElementById('detailDate').textContent = t.datePublished;
+      document.getElementById('detailTitle').textContent = t.title;
+      document.getElementById('detailHighlight').textContent = t.highlight;
+      document.getElementById('detailAnalysis').textContent = t.analysis;
+      document.getElementById('detailImpact').textContent = t.impact;
+
+      const kp = document.getElementById('detailKeyPoints');
+      kp.innerHTML = (t.keyPoints || []).map((p, i) => `
+        <li class="flex items-start gap-2">
+          <span class="font-mono text-xs font-bold text-rust bg-rust-light px-1.5 py-0.5 rounded">${i + 1}</span>
+          <span>${p}</span>
+        </li>
+      `).join('');
+
+      const srcList = document.getElementById('detailSources');
+      srcList.innerHTML = (t.sources || []).map(s => `
+        <a href="${s.url}" target="_blank" rel="noopener" class="p-3 rounded border border-sand-border bg-sand-50 hover:bg-sand-100 flex flex-col justify-between text-xs">
+          <div class="font-bold text-espresso-900">${s.name} &nearr;</div>
+          <div class="text-[11px] text-espresso-muted">${s.type || 'Lien'}</div>
+        </a>
+      `).join('');
+
+      document.getElementById('listView').classList.add('hidden');
+      document.getElementById('detailView').classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    document.getElementById('backBtn').onclick = () => {
+      document.getElementById('detailView').classList.add('hidden');
+      document.getElementById('listView').classList.remove('hidden');
+    };
+
+    document.querySelectorAll('.topic-btn').forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll('.topic-btn').forEach(b => b.className = "topic-btn px-3 py-1 text-xs rounded bg-sand-100 text-espresso-800 hover:bg-sand-200");
+        btn.className = "topic-btn px-3 py-1 text-xs rounded bg-espresso-900 text-sand-50 font-medium";
+        currentFilter = btn.dataset.topic;
+        renderEdition();
+      };
+    });
+
+    init();
+  </script>
+</body>
+</html>
