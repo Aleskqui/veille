@@ -11,9 +11,11 @@ if not api_key:
     raise ValueError("Clé API introuvable.")
 
 genai.configure(api_key=api_key)
-model = genai.GenerativeModel("gemini-1.5-flash")
 
-# Flux RSS sélectionnés (avec sources stables)
+# Modèle Gemini 3.8 Flash
+model = genai.GenerativeModel("gemini-3.8-flash")
+
+# Flux RSS sélectionnés
 FEEDS = {
     "ia": [
         "https://feeds.feedburner.com/venturebeat/ai",
@@ -37,7 +39,6 @@ def fetch_recent_articles(urls, max_items=4):
         print(f"--> Récupération du flux : {url}")
         try:
             req = urllib.request.Request(url, headers=headers)
-            # Timeout strict de 8 secondes par flux pour ne jamais bloquer
             with urllib.request.urlopen(req, timeout=8) as response:
                 content = response.read()
                 feed = feedparser.parse(content)
@@ -50,7 +51,7 @@ def fetch_recent_articles(urls, max_items=4):
                     })
                 print(f"    OK ({len(feed.entries)} articles trouvés)")
         except Exception as e:
-            print(f"    Échec/Délai dépassé pour {url} ({e}) -> passage à la suite")
+            print(f"    Échec/Délai dépassé pour {url} ({e}) -> ignoré")
             continue
 
     return articles
@@ -61,7 +62,6 @@ def generate_topic_synthesis(topic_key, topic_label, articles):
     for idx, a in enumerate(articles[:4], 1):
         context += f"Source {idx} ({a['source']}) : {a['title']}\nRésumé : {a['summary']}\nLien : {a['link']}\n\n"
 
-    # Si aucun flux n'a répondu, on génère une fiche basée sur les grandes tendances de la semaine
     if not context.strip():
         context = f"Actualité récente et enjeux majeurs du moment concernant {topic_label}."
 
@@ -114,7 +114,7 @@ def main():
     edition_id = today.strftime("%Y-W%W")
     edition_label = f"Lundi {today.strftime('%d/%m/%Y')}"
 
-    print(f"=== Début de la veille pour {edition_label} ===")
+    print(f"=== Début de la veille pour {edition_label} (Modèle: gemini-3.8-flash) ===")
 
     topics_data = []
     themes = [
