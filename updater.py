@@ -11,11 +11,8 @@ if not GEMINI_API_KEY:
 
 genai.configure(api_key=GEMINI_API_KEY)
 
-# 2. Définition du modèle Gemini 2.5 Flash
-try:
-    model = genai.GenerativeModel("gemini-2.5-flash")
-except Exception:
-    model = genai.GenerativeModel("models/gemini-2.5-flash")
+# 2. Définition du modèle (gemini-3.8-flash)
+model = genai.GenerativeModel("gemini-3.8-flash")
 
 # 3. Flux RSS ciblés
 FEEDS = {
@@ -102,7 +99,7 @@ def main():
     edition_id = today.strftime("%Y-W%W")
     edition_label = f"Lundi {today.strftime('%d/%m/%Y')}"
 
-    print(f"Lancement de la veille pour l'édition {edition_id} avec Gemini 2.5 Flash...")
+    print(f"Lancement de la veille pour l'édition {edition_id} avec Gemini 3.8 Flash...")
 
     topics_data = []
     for key, label in [("ia", "Avancées de l'IA"), ("sport", "Data dans le Sport"), ("demat", "Dématérialisation")]:
