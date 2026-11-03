@@ -12,14 +12,19 @@ if not api_key:
 
 genai.configure(api_key=api_key)
 
-# Modèle Gemini 3.8 Flash
-model = genai.GenerativeModel("gemini-3.8-flash")
+# Modèles à tester dans l'ordre (si l'un est saturé, le suivant prend le relais)
+CANDIDATE_MODELS = [
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-3.8-flash"
+]
 
-# Flux RSS sélectionnés
+# Flux RSS ciblés
 FEEDS = {
     "ia": [
-        "https://feeds.feedburner.com/venturebeat/ai",
-        "https://techcrunch.com/category/artificial-intelligence/feed/"
+        "https://techcrunch.com/category/artificial-intelligence/feed/",
+        "https://venturebeat.com/category/ai/feed/"
     ],
     "sport": [
         "https://theanalyst.com/feed/",
@@ -51,23 +56,50 @@ def fetch_recent_articles(urls, max_items=4):
                     })
                 print(f"    OK ({len(feed.entries)} articles trouvés)")
         except Exception as e:
-            print(f"    Échec/Délai dépassé pour {url} ({e}) -> ignoré")
+            print(f"    Flux ignoré pour {url} ({e})")
             continue
 
     return articles
 
+def ask_gemini_with_fallback(prompt):
+    """Essaie les modèles l'un après l'autre en cas de quota dépassé (429)"""
+    for model_name in CANDIDATE_MODELS:
+        try:
+            print(f"    Tentative de génération avec {model_name}...")
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content(
+                prompt,
+                generation_config={"response_mime_type": "application/json"}
+            )
+            return json.loads(response.text)
+        except Exception as e:
+            print(f"    Échec avec {model_name} ({e}) -> Essai du modèle suivant...")
+            try:
+                # Essai en mode texte standard si JSON MIME n'est pas supporté
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content(prompt)
+                text = response.text.strip()
+                if text.startswith("```json"):
+                    text = text[7:-3].strip()
+                elif text.startswith("```"):
+                    text = text[3:-3].strip()
+                return json.loads(text)
+            except Exception:
+                continue
+    raise RuntimeError("Tous les modèles candidats ont échoué ou sont temporairement à court de quota.")
+
 def generate_topic_synthesis(topic_key, topic_label, articles):
-    print(f"--> Génération de la synthèse IA pour : {topic_label}")
+    print(f"--> Synthèse demandée pour : {topic_label}")
     context = ""
     for idx, a in enumerate(articles[:4], 1):
         context += f"Source {idx} ({a['source']}) : {a['title']}\nRésumé : {a['summary']}\nLien : {a['link']}\n\n"
 
     if not context.strip():
-        context = f"Actualité récente et enjeux majeurs du moment concernant {topic_label}."
+        context = f"Actualités majeures et tendances actuelles concernant {topic_label}."
 
     prompt = f"""
-Tu es un analyste expert de haut niveau. Rédige la fiche de veille stratégique pour : "{topic_label}".
-Voici les éléments d'actualité récents :
+Tu es un analyste expert. Rédige la fiche de veille stratégique pour : "{topic_label}".
+Éléments d'actualité :
 {context}
 
 Rédige une synthèse critique en français avec les informations capitales.
@@ -87,22 +119,7 @@ Réponds STRICTEMENT avec un objet JSON sans aucun formatage Markdown autour, se
   ]
 }}
 """
-    try:
-        response = model.generate_content(
-            prompt,
-            generation_config={"response_mime_type": "application/json"}
-        )
-        data = json.loads(response.text)
-    except Exception as e:
-        print(f"Génération standard (repli texte) : {e}")
-        response = model.generate_content(prompt)
-        text = response.text.strip()
-        if text.startswith("```json"):
-            text = text[7:-3].strip()
-        elif text.startswith("```"):
-            text = text[3:-3].strip()
-        data = json.loads(text)
-
+    data = ask_gemini_with_fallback(prompt)
     data["id"] = f"{topic_key}-{datetime.now().strftime('%Y%m%d')}"
     data["topic"] = topic_key
     data["topicLabel"] = topic_label
@@ -114,7 +131,7 @@ def main():
     edition_id = today.strftime("%Y-W%W")
     edition_label = f"Lundi {today.strftime('%d/%m/%Y')}"
 
-    print(f"=== Début de la veille pour {edition_label} (Modèle: gemini-3.8-flash) ===")
+    print(f"=== Lancement de la veille : {edition_label} ===")
 
     topics_data = []
     themes = [
